@@ -19,13 +19,15 @@ public class RestApiController {
     private final RestTemplate restTemplate;
 
     public RestApiController(RestTemplateBuilder restTemplateBuilder) {
-        this.restTemplate = restTemplateBuilder.build();
+        this.restTemplate = restTemplateBuilder
+                .rootUri("https://api.zonky.cz")
+                .build();
     }
 
     @RequestMapping("/loanStatistics")
-    public LoanStatistics greeting(@RequestParam(value = "rating", defaultValue = "AAAAA") String rating) {
+    public LoanStatistics loanStatistics(@RequestParam(value = "rating", defaultValue = "AAAAA") String rating) {
         ResponseEntity<Loan[]> response = restTemplate.getForEntity(
-                "https://api.zonky.cz/loans/marketplace?rating__eq={rating}",
+                "/loans/marketplace?rating__eq={rating}",
                 Loan[].class,
                 Collections.singletonMap("rating", rating)
         );
