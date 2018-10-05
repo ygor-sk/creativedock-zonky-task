@@ -42,6 +42,7 @@ public class RestApiControllerTest {
     @Test
     public void whenCallingLoanStatistics_thenClientMakesCorrectCall() {
         LoanStatistics loanStatistics = this.restApiController.loanStatistics("AAAAA");
+        assertThat(loanStatistics).isNotNull();
         assertThat(loanStatistics.getCount()).isEqualTo(1);
     }
 }

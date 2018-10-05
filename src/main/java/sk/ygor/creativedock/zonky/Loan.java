@@ -19,6 +19,14 @@ public class Loan {
         this.amount = amount;
     }
 
+    public long getId() {
+        return id;
+    }
+
+    public String getRating() {
+        return rating;
+    }
+
     public BigDecimal getAmount() {
         return amount;
     }
