@@ -90,8 +90,8 @@ public class RestApiController {
             long totalCount = Long.parseLong(xTotalHeader.get(0));
             if (totalCount != loans.length) {
                 throw new RestApiControllerException(
-                        String.format("Zonky API returned %d loans. Expected maximum count: %d.",
-                                totalCount, maxLoansExpected)
+                        String.format("Zonky API returned indicated total of %d loans. However, %d loans were retrieved.",
+                                totalCount, loans.length)
                 );
             }
         } else {
