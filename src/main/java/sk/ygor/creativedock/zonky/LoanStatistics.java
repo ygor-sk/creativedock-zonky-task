@@ -1,0 +1,36 @@
+package sk.ygor.creativedock.zonky;
+
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+public class LoanStatistics {
+
+    private final String rating;
+    private final long count;
+    private final BigDecimal average;
+    private final LocalDateTime dateTimeRetrieved;
+
+    public LoanStatistics(String rating, long count, BigDecimal average, LocalDateTime dateTimeRetrieved) {
+        this.rating = rating;
+        this.count = count;
+        this.average = average;
+        this.dateTimeRetrieved = dateTimeRetrieved;
+    }
+
+    public String getRating() {
+        return rating;
+    }
+
+    public long getCount() {
+        return count;
+    }
+
+    public BigDecimal getAverage() {
+        return average;
+    }
+
+    public LocalDateTime getDateTimeRetrieved() {
+        return dateTimeRetrieved;
+    }
+}
