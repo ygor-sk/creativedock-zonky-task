@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.stream.Stream;
@@ -35,7 +36,8 @@ public class RestApiController {
             return new LoanStatistics(rating, 0, null, LocalDateTime.now());
         } else {
             BigDecimal totalAmount = Stream.of(loans).map(Loan::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-            return new LoanStatistics(rating, loans.length, totalAmount, LocalDateTime.now());
+            BigDecimal average = totalAmount.divide(new BigDecimal(loans.length), MathContext.UNLIMITED);
+            return new LoanStatistics(rating, loans.length, average, LocalDateTime.now());
         }
     }
 
