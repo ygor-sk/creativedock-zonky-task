@@ -1,6 +1,5 @@
 package sk.ygor.creativedock.zonky;
 
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 

@@ -10,10 +10,12 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.RestClientException;
 
 import java.math.BigDecimal;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
@@ -108,6 +110,27 @@ public class RestApiControllerTest {
                 .isThrownBy(() -> this.restApiController.loanStatistics("invalid_rating"))
                 .withMessage("Zonky API returned loan with invalid rating. Loan ID: 2. Expected rating: invalid_rating. Actual rating: AAA")
                 .withNoCause();
+    }
+
+    @Test
+    public void testException_empty_body() {
+        this.server.expect(requestTo("/loans/marketplace?rating__eq=" + "empty_body"))
+                .andRespond(withSuccess("", MediaType.APPLICATION_JSON));
+
+        assertThatExceptionOfType(RestApiControllerException.class)
+                .isThrownBy(() -> this.restApiController.loanStatistics("empty_body"))
+                .withMessage("Zonky API server returned an empty body")
+                .withNoCause();
+    }
+
+    @Test
+    public void testException_invalid_body() {
+        this.server.expect(requestTo("/loans/marketplace?rating__eq=" + "invalid_body"))
+                .andRespond(withSuccess("{{{{{{{{{{{{", MediaType.APPLICATION_JSON));
+
+        assertThatExceptionOfType(RestClientException.class)
+                .isThrownBy(() -> this.restApiController.loanStatistics("invalid_body"))
+                .withMessageContaining("JSON parse error");
     }
 
     private void setupServerMock(String rating, Loan[] loans) {
