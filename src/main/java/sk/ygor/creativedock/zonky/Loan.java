@@ -4,6 +4,9 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.math.BigDecimal;
 
+/**
+ * JSON Entity returned by consumed Zonky API.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Loan {
 

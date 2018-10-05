@@ -3,6 +3,9 @@ package sk.ygor.creativedock.zonky;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * JSON Entity returned by {@link RestApiController}
+ */
 public class LoanStatistics {
 
     private final String rating;

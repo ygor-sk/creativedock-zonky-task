@@ -24,6 +24,13 @@ import java.util.stream.Stream;
 @RestController
 public class RestApiController {
 
+    /**
+     * By default, Zonky API returns 20 results only. We need to set X-Size header to ask for more.
+     * This property contains an educated guess on both the maximum of loans, which will be retrieved
+     * and also maximum of loans, which we want to parse into memory before processing them.
+     * <p/>
+     * If Zonky API indicates (X-Total header), that more loans exists, than we refuse to process this request.
+     */
     private final long maxLoansExpected;
 
     private final RestTemplate restTemplate;
@@ -76,7 +83,7 @@ public class RestApiController {
             );
         } catch (RestClientException ex) {
             if (ex.getCause() instanceof SocketTimeoutException) {
-                throw new RestApiControllerException("Zonky API takes too long to respond.");
+                throw new RestApiControllerException("Zonky API takes too long to respond."); // handling this as a special case
             } else {
                 throw ex;
             }
@@ -85,6 +92,7 @@ public class RestApiController {
     }
 
     private void validateResponse(String expectedRating, Loan[] loans, HttpHeaders responseHeader) {
+        // validate X-Total and real count of loans which were fetched
         List<String> xTotalHeader = responseHeader.get("X-Total");
         if (xTotalHeader != null && xTotalHeader.size() == 1) {
             long totalCount = Long.parseLong(xTotalHeader.get(0));
@@ -99,6 +107,8 @@ public class RestApiController {
                     "Zonky API did not provide X-Total header. Unable to confirm, that all loans were retrieved."
             );
         }
+
+        // do all loans belong to the rating, which was used in the filter ?
         Optional<Loan> invalidLoanOption = Stream.of(loans)
                 .filter(loan -> !loan.getRating().equals(expectedRating))
                 .findFirst();
