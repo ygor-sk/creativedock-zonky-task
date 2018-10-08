@@ -30,7 +30,6 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 @RunWith(SpringRunner.class)
 @RestClientTest(RestApiController.class)
-@ContextConfiguration(classes = { RestApiControllerTest.TestConfig.class })
 public class RestApiControllerTest {
 
 
