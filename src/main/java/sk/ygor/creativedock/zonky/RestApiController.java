@@ -1,5 +1,7 @@
 package sk.ygor.creativedock.zonky;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
@@ -16,10 +18,7 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.net.SocketTimeoutException;
 import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Stream;
+import java.util.*;
 
 @RestController
 public class RestApiController {
@@ -31,16 +30,18 @@ public class RestApiController {
      * <p/>
      * If Zonky API indicates (X-Total header), that more loans exists, than we refuse to process this request.
      */
-    private final long maxLoansExpected;
+    private final long maxLoansPage;
 
     private final RestTemplate restTemplate;
+
+    private final Logger logger = LoggerFactory.getLogger(RestApiController.class);
 
     public RestApiController(RestTemplateBuilder restTemplateBuilder,
                              @Value("${zonky.api.root.uri}") String rootUri,
                              @Value("${zonky.api.connection.timeout.millis}") int connectionTimeout,
                              @Value("${zonky.api.read.timeout.millis}") int readTimeout,
-                             @Value("${zonky.api.max.loans.expected}") long maxLoansExpected) {
-        this.maxLoansExpected = maxLoansExpected;
+                             @Value("${zonky.api.max.loans.page}") long maxLoansPage) {
+        this.maxLoansPage = maxLoansPage;
         this.restTemplate = restTemplateBuilder
                 .rootUri(rootUri)
                 .setConnectTimeout(connectionTimeout)
@@ -50,27 +51,40 @@ public class RestApiController {
 
     @RequestMapping("/loanStatistics")
     public LoanStatistics loanStatistics(@RequestParam(value = "rating", defaultValue = "AAAAA") String rating) {
-        ResponseEntity<Loan[]> response = consumeZonkyRestApi(rating);
+        List<Loan> loans = fetchAllLoans(rating);
 
-        Loan[] loans = response.getBody();
-        if (loans == null) {
-            throw new RestApiControllerException("Zonky API server returned an empty body");
+        validateResponse(rating, loans);
+        if (loans.isEmpty()) {
+            // average of zero items is undefined, representing as null
+            return new LoanStatistics(rating, 0, null, LocalDateTime.now());
         } else {
-            validateResponse(rating, loans, response.getHeaders());
-            if (loans.length == 0) {
-                // average of zero items is undefined, representing as null
-                return new LoanStatistics(rating, 0, null, LocalDateTime.now());
-            } else {
-                BigDecimal totalAmount = Stream.of(loans).map(Loan::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-                BigDecimal average = totalAmount.divide(new BigDecimal(loans.length), MathContext.DECIMAL64);
-                return new LoanStatistics(rating, loans.length, average, LocalDateTime.now());
-            }
+            BigDecimal totalAmount = loans.stream().map(Loan::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal average = totalAmount.divide(new BigDecimal(loans.size()), MathContext.DECIMAL64);
+            return new LoanStatistics(rating, loans.size(), average, LocalDateTime.now());
         }
     }
 
-    private ResponseEntity<Loan[]> consumeZonkyRestApi(String rating) {
+    private List<Loan> fetchAllLoans(@RequestParam(value = "rating", defaultValue = "AAAAA") String rating) {
+        int page = 0;
+        List<Loan> loans = new ArrayList<>();
+        Loan[] lastPage;
+        do {
+            ResponseEntity<Loan[]> response = consumeZonkyRestApi(rating, page);
+            lastPage = response.getBody();
+            if (lastPage == null) {
+                throw new RestApiControllerException("Zonky API server returned an empty body");
+            }
+            loans.addAll(Arrays.asList(lastPage));
+            logger.info(String.format("Fetched %d loans on page %d", response.getBody().length, page));
+            page++;
+        } while (lastPage.length > 0);
+        return loans;
+    }
+
+    private ResponseEntity<Loan[]> consumeZonkyRestApi(String rating, int page) {
         HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Size", String.valueOf(maxLoansExpected));
+        headers.set("X-Size", String.valueOf(maxLoansPage));
+        headers.set("X-Page", String.valueOf(page));
 
         ResponseEntity<Loan[]> response;
         try {
@@ -91,25 +105,9 @@ public class RestApiController {
         return response;
     }
 
-    private void validateResponse(String expectedRating, Loan[] loans, HttpHeaders responseHeader) {
-        // validate X-Total and real count of loans which were fetched
-        List<String> xTotalHeader = responseHeader.get("X-Total");
-        if (xTotalHeader != null && xTotalHeader.size() == 1) {
-            long totalCount = Long.parseLong(xTotalHeader.get(0));
-            if (totalCount != loans.length) {
-                throw new RestApiControllerException(
-                        String.format("Zonky API returned indicated total of %d loans. However, %d loans were retrieved.",
-                                totalCount, loans.length)
-                );
-            }
-        } else {
-            throw new RestApiControllerException(
-                    "Zonky API did not provide X-Total header. Unable to confirm, that all loans were retrieved."
-            );
-        }
-
+    private void validateResponse(String expectedRating, List<Loan> loans) {
         // do all loans belong to the rating, which was used in the filter ?
-        Optional<Loan> invalidLoanOption = Stream.of(loans)
+        Optional<Loan> invalidLoanOption = loans.stream()
                 .filter(loan -> !loan.getRating().equals(expectedRating))
                 .findFirst();
         if (invalidLoanOption.isPresent()) {
