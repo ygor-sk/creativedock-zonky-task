@@ -15,6 +15,7 @@ import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.net.SocketTimeoutException;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -35,12 +36,15 @@ public class RestApiController {
 
     private final RestTemplate restTemplate;
 
+    private final Clock clock;
+
     public RestApiController(RestTemplateBuilder restTemplateBuilder,
                              @Value("${zonky.api.root.uri}") String rootUri,
                              @Value("${zonky.api.connection.timeout.millis}") int connectionTimeout,
                              @Value("${zonky.api.read.timeout.millis}") int readTimeout,
-                             @Value("${zonky.api.max.loans.expected}") long maxLoansExpected) {
+                             @Value("${zonky.api.max.loans.expected}") long maxLoansExpected, Clock clock) {
         this.maxLoansExpected = maxLoansExpected;
+        this.clock = clock;
         this.restTemplate = restTemplateBuilder
                 .rootUri(rootUri)
                 .setConnectTimeout(connectionTimeout)
@@ -59,11 +63,11 @@ public class RestApiController {
             validateResponse(rating, loans, response.getHeaders());
             if (loans.length == 0) {
                 // average of zero items is undefined, representing as null
-                return new LoanStatistics(rating, 0, null, LocalDateTime.now());
+                return new LoanStatistics(rating, 0, null, LocalDateTime.now(clock));
             } else {
                 BigDecimal totalAmount = Stream.of(loans).map(Loan::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
                 BigDecimal average = totalAmount.divide(new BigDecimal(loans.length), MathContext.DECIMAL64);
-                return new LoanStatistics(rating, loans.length, average, LocalDateTime.now());
+                return new LoanStatistics(rating, loans.length, average, LocalDateTime.now(clock));
             }
         }
     }

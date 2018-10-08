@@ -6,13 +6,22 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.client.RestClientTest;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClientException;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
@@ -21,6 +30,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 @RunWith(SpringRunner.class)
 @RestClientTest(RestApiController.class)
+@ContextConfiguration(classes = { RestApiControllerTest.TestConfig.class })
 public class RestApiControllerTest {
 
 
@@ -32,6 +42,16 @@ public class RestApiControllerTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Configuration
+    @Import(Application.class)
+    public static class TestConfig {
+        @Bean
+        @Primary
+        public Clock myService() {
+            return Clock.fixed(Instant.ofEpochSecond(3600), ZoneId.systemDefault());
+        }
+    }
 
     @Test
     public void testSuccess_AAAAA() {
@@ -47,6 +67,7 @@ public class RestApiControllerTest {
         assertThat(loanStatistics.getCount()).isEqualTo(4);
         assertThat(loanStatistics.getAverage()).isEqualTo(new BigDecimal("6.25"));
         assertThat(loanStatistics.getRating()).isEqualTo("AAAAA");
+        assertThat(loanStatistics.getDateTimeRetrieved()).isEqualTo(LocalDateTime.ofInstant(Instant.ofEpochSecond(3600), ZoneId.systemDefault()));
     }
 
     @Test
@@ -60,6 +81,7 @@ public class RestApiControllerTest {
         assertThat(loanStatistics.getCount()).isEqualTo(1);
         assertThat(loanStatistics.getAverage()).isEqualTo(new BigDecimal("42.7"));
         assertThat(loanStatistics.getRating()).isEqualTo("single_loan");
+        assertThat(loanStatistics.getDateTimeRetrieved()).isEqualTo(LocalDateTime.ofInstant(Instant.ofEpochSecond(3600), ZoneId.systemDefault()));
     }
 
     @Test
@@ -71,6 +93,7 @@ public class RestApiControllerTest {
         assertThat(loanStatistics.getCount()).isEqualTo(0);
         assertThat(loanStatistics.getAverage()).isNull();
         assertThat(loanStatistics.getRating()).isEqualTo("no_loans");
+        assertThat(loanStatistics.getDateTimeRetrieved()).isEqualTo(LocalDateTime.ofInstant(Instant.ofEpochSecond(3600), ZoneId.systemDefault()));
     }
 
     @Test
