@@ -47,7 +47,7 @@ public class RestApiControllerTest {
     public static class TestConfig {
         @Bean
         @Primary
-        public Clock myService() {
+        public Clock clock() {
             return Clock.fixed(Instant.ofEpochSecond(3600), ZoneId.systemDefault());
         }
     }
