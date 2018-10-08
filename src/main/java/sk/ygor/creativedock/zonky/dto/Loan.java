@@ -1,4 +1,4 @@
-package sk.ygor.creativedock.zonky;
+package sk.ygor.creativedock.zonky.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 

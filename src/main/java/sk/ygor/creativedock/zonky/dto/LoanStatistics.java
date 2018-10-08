@@ -1,4 +1,6 @@
-package sk.ygor.creativedock.zonky;
+package sk.ygor.creativedock.zonky.dto;
+
+import sk.ygor.creativedock.zonky.controllers.RestApiController;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
