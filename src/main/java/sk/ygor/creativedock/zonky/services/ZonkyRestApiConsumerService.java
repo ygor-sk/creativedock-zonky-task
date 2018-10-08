@@ -1,6 +1,5 @@
 package sk.ygor.creativedock.zonky.services;
 
-import io.vavr.control.Either;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
@@ -49,17 +48,15 @@ public class ZonkyRestApiConsumerService {
                 .build();
     }
 
-    public Either<String, LoanStatistics> loanStatistics(String rating) {
-        return consumeZonkyRestApi(rating).flatMap(loansResponse -> {
-            Loan[] loans = loansResponse.getBody();
-            if (loans == null) {
-                return Either.left("Zonky API server returned an empty body");
-            } else {
-                return validateResponse(rating, loans, loansResponse.getHeaders())
-                        .map(Either::<String, LoanStatistics>left)
-                        .orElseGet(() -> Either.right(calculateStatistics(rating, loans)));
-            }
-        });
+    public LoanStatistics loanStatistics(String rating) {
+        ResponseEntity<Loan[]> loansResponse = consumeZonkyRestApi(rating);
+        Loan[] loans = loansResponse.getBody();
+        if (loans == null) {
+            throw new ZonkyRestApiConsumerServiceException("Zonky API server returned an empty body");
+        } else {
+            validateResponse(rating, loans, loansResponse.getHeaders());
+            return calculateStatistics(rating, loans);
+        }
     }
 
     private LoanStatistics calculateStatistics(String rating, Loan[] loans) {
@@ -73,7 +70,7 @@ public class ZonkyRestApiConsumerService {
         }
     }
 
-    private Either<String, ResponseEntity<Loan[]>> consumeZonkyRestApi(String rating) {
+    private ResponseEntity<Loan[]> consumeZonkyRestApi(String rating) {
         HttpHeaders headers = new HttpHeaders();
         headers.set("X-Size", String.valueOf(maxLoansExpected));
 
@@ -88,25 +85,28 @@ public class ZonkyRestApiConsumerService {
             );
         } catch (RestClientException ex) {
             if (ex.getCause() instanceof SocketTimeoutException) {
-                return Either.left("Zonky API takes too long to respond.");
+                throw new ZonkyRestApiConsumerServiceException("Zonky API takes too long to respond.");
             } else {
                 throw ex;
             }
         }
-        return Either.right(response);
+        return response;
     }
 
-    private Optional<String> validateResponse(String expectedRating, Loan[] loans, HttpHeaders responseHeader) {
+    private void validateResponse(String expectedRating, Loan[] loans, HttpHeaders responseHeader) {
         // validate X-Total and real count of loans which were fetched
         List<String> xTotalHeader = responseHeader.get("X-Total");
         if (xTotalHeader != null && xTotalHeader.size() == 1) {
             long totalCount = Long.parseLong(xTotalHeader.get(0));
             if (totalCount != loans.length) {
-                return Optional.of(String.format("Zonky API returned indicated total of %d loans. However, %d loans were retrieved.",
-                        totalCount, loans.length));
+                throw new ZonkyRestApiConsumerServiceException(
+                        String.format("Zonky API returned indicated total of %d loans. However, %d loans were retrieved.",
+                                totalCount, loans.length));
             }
         } else {
-            return Optional.of("Zonky API did not provide X-Total header. Unable to confirm, that all loans were retrieved.");
+            throw new ZonkyRestApiConsumerServiceException(
+                    "Zonky API did not provide X-Total header. Unable to confirm, that all loans were retrieved."
+            );
         }
 
         // do all loans belong to the rating, which was used in the filter ?
@@ -115,13 +115,11 @@ public class ZonkyRestApiConsumerService {
                 .findFirst();
         if (invalidLoanOption.isPresent()) {
             Loan invalidLoan = invalidLoanOption.get();
-            return Optional.of(String.format("Zonky API returned loan with invalid rating. Loan ID: %d. Expected rating: %s. Actual rating: %s",
-                    invalidLoan.getId(), expectedRating, invalidLoan.getRating()
-            ));
+            throw new ZonkyRestApiConsumerServiceException(
+                    String.format("Zonky API returned loan with invalid rating. Loan ID: %d. Expected rating: %s. Actual rating: %s",
+                            invalidLoan.getId(), expectedRating, invalidLoan.getRating()
+                    ));
         }
-
-        return Optional.empty();
     }
-
 
 }
